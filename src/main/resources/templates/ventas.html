@@ -1,68 +1,117 @@
-<html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{layout :: layout(title=~{::title}, content=~{::section})}">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(title=~{::title}, content=~{::section})}">
+
 <head>
     <title>Sistema de Ventas con Redis</title>
 </head>
-<body>
-<section>
-    <section class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1>Sistema de Ventas con Replicación Redis</h1>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <section class="content">
-        <div class="container-fluid">
-             <p>Las creaciones de productos se escriben en el nodo <strong>Maestro (puerto 6379)</strong>. Las lecturas se realizan desde el nodo <strong>Réplica (puerto 6380)</strong>.</p>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card card-primary">
-                        <div class="card-header"><h3 class="card-title">Crear Producto (Escritura)</h3></div>
-                        <form id="create-form">
-                            <div class="card-body">
-                                <div class="form-group">
-                                    <label for="name">Nombre</label>
-                                    <input type="text" id="name" class="form-control" required placeholder="Ej: Teclado Mecánico">
-                                </div>
-                                <div class="form-group">
-                                    <label for="price">Precio</label>
-                                    <input type="number" id="price" class="form-control" step="0.01" required placeholder="Ej: 75.50">
-                                </div>
-                                <div class="form-group">
-                                    <label for="stock">Stock</label>
-                                    <input type="number" id="stock" class="form-control" required placeholder="Ej: 120">
-                                </div>
-                            </div>
-                            <div class="card-footer">
-                                <button type="submit" class="btn btn-primary">Crear Producto</button>
-                            </div>
-                        </form>
+<body>
+    <section>
+        <section class="content-header">
+            <div class="container-fluid">
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1>Sistema de Ventas con Replicación Redis</h1>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card card-success">
-                        <div class="card-header"><h3 class="card-title">Buscar Producto (Lectura)</h3></div>
-                        <div class="card-body">
-                            <div class="input-group">
-                                <input type="text" id="search-id" class="form-control" placeholder="ID del producto">
-                                <span class="input-group-append">
-                                    <button type="button" class="btn btn-info" onclick="searchProduct()">Buscar</button>
-                                </span>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="container-fluid">
+                <p>Las operaciones de <strong>crear, actualizar y eliminar</strong> productos se escriben en el nodo <strong>Maestro
+                        (puerto 6379)</strong>. El <strong>listado de productos</strong> se realiza desde el nodo <strong>Réplica (puerto
+                        6380)</strong> para distribuir la carga de lectura.</p>
+                <div class="row">
+                    <div class="col-lg-4">
+                        <div class="card card-primary">
+                            <div class="card-header">
+                                <h3 class="card-title">Crear Producto (Escritura en Maestro)</h3>
                             </div>
-                            <hr/>
-                            <div id="product-info">Esperando búsqueda...</div>
+                            <form id="create-form">
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label for="name">Nombre</label>
+                                        <input type="text" id="name" class="form-control" required
+                                            placeholder="Ej: Teclado Mecánico">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="price">Precio</label>
+                                        <input type="number" id="price" class="form-control" step="0.01" required
+                                            placeholder="Ej: 75.50">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="stock">Stock</label>
+                                        <input type="number" id="stock" class="form-control" required
+                                            placeholder="Ej: 120">
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button type="submit" class="btn btn-primary">Crear Producto</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-lg-8">
+                        <div class="card card-success">
+                            <div class="card-header">
+                                <h3 class="card-title">Lista de Productos (Lectura de Réplica)</h3>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-bordered table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Precio</th>
+                                            <th>Stock</th>
+                                            <th style="width: 150px;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="products-table-body">
+                                        </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <script th:src="@{/admin/dist/js/ventas.js}"></script>
-</section>
+        <div class="modal fade" id="editProductModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Editar Producto</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form id="edit-form">
+                        <div class="modal-body">
+                            <input type="hidden" id="edit-id">
+                            <div class="form-group">
+                                <label for="edit-name">Nombre</label>
+                                <input type="text" id="edit-name" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-price">Precio</label>
+                                <input type="number" id="edit-price" class="form-control" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-stock">Stock</label>
+                                <input type="number" id="edit-stock" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script th:src="@{/admin/dist/js/ventas.js}"></script>
+    </section>
 </body>
+
 </html>
