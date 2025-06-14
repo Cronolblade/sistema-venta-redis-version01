@@ -3,28 +3,36 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
 });
 
+// --- RUTA BASE DE LA API ---
+const API_BASE_URL = '/api/v1/productos';
+
 // --- LÓGICA PARA CREAR PRODUCTOS ---
 document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const product = {
         name: document.getElementById('name').value,
-        price: parseFloat(document.getElementById('price').value),
+        // Corregido: el campo en el JSON debe ser 'precio' para que coincida con la clase Java
+        precio: parseFloat(document.getElementById('price').value),
         stock: parseInt(document.getElementById('stock').value)
     };
 
     try {
-        const response = await fetch('/api/ventas/productos', {
+        const response = await fetch(API_BASE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(product)
         });
 
+        if (response.status === 403) {
+             alert("Acceso denegado. Solo los administradores pueden crear productos.");
+             return;
+        }
         if (!response.ok) throw new Error('Error al crear el producto.');
 
         const createdProduct = await response.json();
-        alert(`Producto '${createdProduct.name}' creado en MAESTRO.`);
+        alert(`Producto '${createdProduct.name}' creado.`);
         document.getElementById('create-form').reset();
-        loadProducts(); // Recargar la lista de productos
+        loadProducts();
     } catch (error) {
         console.error("Error en creación:", error);
         alert("Ocurrió un error al crear el producto.");
@@ -35,12 +43,12 @@ document.getElementById('create-form').addEventListener('submit', async (e) => {
 // --- LÓGICA PARA LEER (LISTAR) PRODUCTOS ---
 async function loadProducts() {
     try {
-        const response = await fetch('/api/ventas/productos');
+        const response = await fetch(API_BASE_URL);
         if (!response.ok) throw new Error('Error al cargar los productos.');
 
         const products = await response.json();
         const tableBody = document.getElementById('products-table-body');
-        tableBody.innerHTML = ''; // Limpiar la tabla antes de llenarla
+        tableBody.innerHTML = '';
 
         if(products.length === 0){
              tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No hay productos para mostrar.</td></tr>';
@@ -51,7 +59,7 @@ async function loadProducts() {
             const row = `
                 <tr>
                     <td>${product.name}</td>
-                    <td>$${product.price.toFixed(2)}</td>
+                    <td>$${product.precio.toFixed(2)}</td>
                     <td>${product.stock}</td>
                     <td>
                         <button class="btn btn-sm btn-info" onclick='showEditModal(${JSON.stringify(product)})'>Editar</button>
@@ -72,7 +80,8 @@ async function loadProducts() {
 function showEditModal(product) {
     document.getElementById('edit-id').value = product.id;
     document.getElementById('edit-name').value = product.name;
-    document.getElementById('edit-price').value = product.price;
+    // Corregido: de .price a .precio
+    document.getElementById('edit-price').value = product.precio;
     document.getElementById('edit-stock').value = product.stock;
     $('#editProductModal').modal('show');
 }
@@ -82,22 +91,27 @@ document.getElementById('edit-form').addEventListener('submit', async (e) => {
     const id = document.getElementById('edit-id').value;
     const product = {
         name: document.getElementById('edit-name').value,
-        price: parseFloat(document.getElementById('edit-price').value),
+        // Corregido: el campo en el JSON debe ser 'precio'
+        precio: parseFloat(document.getElementById('edit-price').value),
         stock: parseInt(document.getElementById('edit-stock').value)
     };
 
     try {
-        const response = await fetch(`/api/ventas/productos/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(product)
         });
 
+        if (response.status === 403) {
+             alert("Acceso denegado. Solo los administradores pueden actualizar productos.");
+             return;
+        }
         if (!response.ok) throw new Error('Error al actualizar el producto.');
 
         $('#editProductModal').modal('hide');
-        alert(`Producto '${product.name}' actualizado en MAESTRO.`);
-        loadProducts(); // Recargar la lista
+        alert(`Producto '${product.name}' actualizado.`);
+        loadProducts();
     } catch (error) {
         console.error("Error en actualización:", error);
         alert("Ocurrió un error al actualizar el producto.");
@@ -110,14 +124,18 @@ async function deleteProduct(id, name) {
     if (!confirm(`¿Estás seguro de que quieres eliminar el producto '${name}'?`)) return;
 
     try {
-        const response = await fetch(`/api/ventas/productos/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/${id}`, {
             method: 'DELETE'
         });
 
+        if (response.status === 403) {
+             alert("Acceso denegado. Solo los administradores pueden eliminar productos.");
+             return;
+        }
         if (!response.ok) throw new Error('Error al eliminar el producto.');
         
-        alert(`Producto '${name}' eliminado del MAESTRO.`);
-        loadProducts(); // Recargar la lista
+        alert(`Producto '${name}' eliminado.`);
+        loadProducts();
     } catch (error) {
         console.error("Error en eliminación:", error);
         alert("Ocurrió un error al eliminar el producto.");
