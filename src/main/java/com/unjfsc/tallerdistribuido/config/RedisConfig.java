@@ -13,7 +13,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @Configuration
 public class RedisConfig {
 
-    // 1. Configuración de la conexión al MAESTRO
+    // --- CONFIGURACIÓN DEL MAESTRO ---
     @Bean
     @Primary
     public LettuceConnectionFactory redisMasterConnectionFactory(
@@ -22,28 +22,30 @@ public class RedisConfig {
             @Value("${spring.redis.password}") String password) {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
         config.setPassword(RedisPassword.of(password));
+        // AÑADIDO: Forzamos el uso de la base de datos 0
+        config.setDatabase(0);
         return new LettuceConnectionFactory(config);
     }
 
-    // 2. Plantilla para interactuar con el MAESTRO (escrituras)
     @Bean(name = "redisMasterTemplate")
     public StringRedisTemplate redisMasterTemplate(
             @Qualifier("redisMasterConnectionFactory") LettuceConnectionFactory connectionFactory) {
         return new StringRedisTemplate(connectionFactory);
     }
 
-    // 3. Configuración de la conexión a la RÉPLICA
+    // --- CONFIGURACIÓN DE LA RÉPLICA ---
     @Bean
     public LettuceConnectionFactory redisReplicaConnectionFactory(
-            @Value("${redis.replica.host}") String host,
-            @Value("${redis.replica.port}") int port,
-            @Value("${redis.replica.password}") String password) {
+            @Value("${spring.redis.replica.host}") String host,
+            @Value("${spring.redis.replica.port}") int port,
+            @Value("${spring.redis.replica.password}") String password) {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
         config.setPassword(RedisPassword.of(password));
+        // AÑADIDO: Forzamos el uso de la base de datos 0
+        config.setDatabase(0);
         return new LettuceConnectionFactory(config);
     }
 
-    // 4. Plantilla para interactuar con la RÉPLICA (lecturas)
     @Bean(name = "redisReplicaTemplate")
     public StringRedisTemplate redisReplicaTemplate(
             @Qualifier("redisReplicaConnectionFactory") LettuceConnectionFactory connectionFactory) {

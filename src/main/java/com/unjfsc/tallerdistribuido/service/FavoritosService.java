@@ -1,47 +1,42 @@
 package com.unjfsc.tallerdistribuido.service;
 
-import com.unjfsc.tallerdistribuido.model.Producto;
-import com.unjfsc.tallerdistribuido.repository.ProductoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class FavoritosService {
 
-    @Autowired
-    @Qualifier("redisMasterTemplate")
-    private RedisTemplate<String, String> redisTemplate;
+	private final StringRedisTemplate redisMasterTemplate;
 
-    @Autowired
-    private ProductoRepository productoRepository;
+	// --- MEJORA ---
+	// Inyectamos explícitamente 'redisMasterTemplate' porque la gestión de
+	// favoritos
+	// (añadir, quitar, leer) debe ir siempre contra el nodo principal para
+	// asegurar la consistencia de los datos del usuario.
+	public FavoritosService(@Qualifier("redisMasterTemplate") StringRedisTemplate redisMasterTemplate) {
+		this.redisMasterTemplate = redisMasterTemplate;
+	}
 
-    private String getFavoritesKey(String username) {
-        return "favorites:" + username;
-    }
+	private String getFavoritosKey(String username) {
+		return "favoritos:" + username;
+	}
 
-    public void agregarFavorito(String username, String productoId) {
-        redisTemplate.opsForSet().add(getFavoritesKey(username), productoId);
-    }
+	public void agregarFavorito(String username, String productoId) {
+		redisMasterTemplate.opsForSet().add(getFavoritosKey(username), productoId);
+	}
 
-    public void eliminarFavorito(String username, String productoId) {
-        redisTemplate.opsForSet().remove(getFavoritesKey(username), productoId);
-    }
+	public void eliminarFavorito(String username, String productoId) {
+		redisMasterTemplate.opsForSet().remove(getFavoritosKey(username), productoId);
+	}
 
-    public Set<Producto> getProductosFavoritos(String username) {
-        Set<String> productoIds = redisTemplate.opsForSet().members(getFavoritesKey(username));
-        if (productoIds == null || productoIds.isEmpty()) {
-            return Set.of(); // Devuelve un conjunto vacío si no hay favoritos
-        }
-        
-        // Busca todos los productos por sus IDs
-        return productoIds.stream()
-                .map(id -> productoRepository.findById(id).orElse(null))
-                .filter(producto -> producto != null)
-                .collect(Collectors.toSet());
-    }
+	public Set<String> getProductosFavoritos(String username) {
+		return redisMasterTemplate.opsForSet().members(getFavoritosKey(username));
+	}
+
+	public boolean esFavorito(String username, String productoId) {
+		return redisMasterTemplate.opsForSet().isMember(getFavoritosKey(username), productoId);
+	}
 }
