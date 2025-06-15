@@ -2,7 +2,7 @@ package com.unjfsc.tallerdistribuido;
 
 import com.unjfsc.tallerdistribuido.model.User;
 import com.unjfsc.tallerdistribuido.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value; // Importar @Value
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -15,7 +15,6 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // Inyectar los valores desde application.properties
     @Value("${admin.username}")
     private String adminUsername;
 
@@ -29,17 +28,16 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Llama al método para crear el administrador
         createAdminUser();
     }
 
     private void createAdminUser() {
-        // Revisa si el usuario administrador YA EXISTE
         if (userRepository.findByUsername(adminUsername).isEmpty()) {
             User admin = new User();
             admin.setUsername(adminUsername);
             admin.setPassword(passwordEncoder.encode(adminPassword));
-            admin.setRoles(Set.of("ROLE_ADMIN", "ROLE_USER")); // Un admin también es un usuario
+            // El administrador solo necesita el rol de ADMIN
+            admin.setRoles(Set.of("ROLE_ADMIN"));
             
             userRepository.save(admin);
             System.out.println(">>> Usuario administrador '" + adminUsername + "' creado exitosamente.");

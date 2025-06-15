@@ -25,6 +25,12 @@
 			</ul>
 
 			<ul class="navbar-nav ml-auto">
+				<li class="nav-item" sec:authorize="hasRole('USER') and !hasRole('ADMIN')">
+					<a class="nav-link" th:href="@{/carrito}">
+						<i class="fas fa-shopping-cart"></i>
+						<span class="d-none d-sm-inline">Carrito</span>
+					</a>
+				</li>
 				<li class="nav-item" sec:authorize="isAuthenticated()">
 					<form th:action="@{/logout}" method="post">
 						<button type="submit" class="btn btn-link nav-link">Cerrar Sesión</button>
@@ -34,25 +40,49 @@
 		</nav>
 
 		<aside class="main-sidebar sidebar-dark-primary elevation-4">
-			<a href="#" class="brand-link">
+			<a th:href="${#authorization.expression('hasRole(''ADMIN'')') ? '/ventas' : '/catalogo'}"
+				class="brand-link">
 				<span class="brand-text font-weight-light">Redis Sales</span>
 			</a>
 			<div class="sidebar">
 				<nav class="mt-2">
 					<ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu"
 						data-accordion="false">
-						<li class="nav-item">
-							<a th:href="@{/ventas}" class="nav-link active">
+
+						<li class="nav-item" sec:authorize="hasRole('ADMIN')">
+							<a th:href="@{/ventas}" class="nav-link">
 								<i class="nav-icon fas fa-cash-register"></i>
-								<p>Ventas</p>
+								<p>Gestión de Ventas</p>
 							</a>
 						</li>
+
+						<th:block sec:authorize="hasRole('USER') and !hasRole('ADMIN')">
+							<li class="nav-item">
+								<a th:href="@{/catalogo}" class="nav-link">
+									<i class="nav-icon fas fa-store"></i>
+									<p>Catálogo</p>
+								</a>
+							</li>
+							<li class="nav-item">
+								<a th:href="@{/carrito}" class="nav-link">
+									<i class="nav-icon fas fa-shopping-cart"></i>
+									<p>Mi Carrito</p>
+								</a>
+							</li>
+							<li class="nav-item">
+								<a th:href="@{/favoritos}" class="nav-link">
+									<i class="nav-icon fas fa-heart"></i>
+									<p>Mis Favoritos</p>
+								</a>
+							</li>
+						</th:block>
 					</ul>
 				</nav>
 			</div>
 		</aside>
 
-		<div class="content-wrapper" th:insert="${content}">
+		<div class="content-wrapper">
+			<th:block th:insert="${content}" />
 		</div>
 
 	</div>
@@ -61,6 +91,25 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.1/js/bootstrap.bundle.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/admin-lte/3.2.0/js/adminlte.min.js"></script>
 
+	<script>
+		function validateQuantity(input) {
+			const max = parseInt(input.getAttribute('max'), 10);
+			let value = parseInt(input.value, 10);
+
+			if (isNaN(value)) {
+				input.value = 1; // Si no es un número, resetea a 1
+				return;
+			}
+
+			if (value < 1) {
+				input.value = 1; // El valor mínimo es 1
+			}
+
+			if (value > max) {
+				input.value = max; // Si el valor es mayor al stock, lo ajusta al máximo
+			}
+		}
+	</script>
 </body>
 
 </html>
