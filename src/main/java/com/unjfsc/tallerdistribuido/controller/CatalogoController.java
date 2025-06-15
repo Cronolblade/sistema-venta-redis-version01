@@ -1,6 +1,5 @@
 package com.unjfsc.tallerdistribuido.controller;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unjfsc.tallerdistribuido.model.Producto;
 import com.unjfsc.tallerdistribuido.service.FavoritosService;
@@ -14,8 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Controller
 public class CatalogoController {
@@ -24,10 +23,6 @@ public class CatalogoController {
 	private final FavoritosService favoritosService;
 	private final ObjectMapper objectMapper;
 
-	// --- MEJORA ---
-	// Inyectamos explícitamente el 'redisReplicaTemplate' para todas las
-	// operaciones de lectura.
-	// Esto asegura que no sobrecargamos al nodo maestro con solicitudes de lectura.
 	public CatalogoController(@Qualifier("redisReplicaTemplate") StringRedisTemplate redisReplicaTemplate,
 			FavoritosService favoritosService, ObjectMapper objectMapper) {
 		this.redisReplicaTemplate = redisReplicaTemplate;
@@ -39,27 +34,46 @@ public class CatalogoController {
 	public String verCatalogo(Model model, Authentication authentication) {
 		String username = authentication.getName();
 
-		// --- MEJORA ---
-		// Leemos todos los productos directamente desde la RÉPLICA de Redis.
-		Set<String> keys = redisReplicaTemplate.keys("producto:*");
+		// --- CAMBIO 1: Buscar claves con "P" mayúscula ---
+		// Ahora buscamos "Producto:*" para que coincida con lo que guarda el
+		// administrador.
+		Set<String> keys = redisReplicaTemplate.keys("Producto:*");
 		List<Producto> productos = new ArrayList<>();
-		if (keys != null) {
+
+		if (keys != null && !keys.isEmpty()) {
 			for (String key : keys) {
-				String json = redisReplicaTemplate.opsForValue().get(key);
 				try {
-					Producto producto = objectMapper.readValue(json, Producto.class);
+					// --- CAMBIO 2: Leer los datos como HASH, no como STRING ---
+					// Usamos opsForHash().entries(key) para obtener todos los campos y valores del
+					// producto.
+					// Esto devuelve un Map<String, String> que representa el objeto Producto.
+					Map<Object, Object> productoHash = redisReplicaTemplate.opsForHash().entries(key);
+
+					// Convertimos el Map (el Hash de Redis) a un objeto Producto usando
+					// ObjectMapper.
+					Producto producto = objectMapper.convertValue(productoHash, Producto.class);
+
+					// Asignamos el ID que viene de la clave de Redis, ya que no está dentro del
+					// Hash.
+					// Ejemplo: de la clave "Producto:123-abc", extraemos "123-abc".
+					String id = key.substring("Producto:".length());
+					producto.setId(id);
+
 					productos.add(producto);
-				} catch (IOException e) {
+
+				} catch (Exception e) {
 					// Manejar la excepción, por ejemplo, loguearla.
+					System.err.println("Error al procesar la clave de Redis: " + key);
 					e.printStackTrace();
 				}
 			}
 		}
 
-		// La lógica de favoritos sigue igual, ya que es específica del usuario.
+		// La lógica de favoritos sigue igual.
 		Set<String> favoritosIds = favoritosService.getProductosFavoritos(username);
 		model.addAttribute("productos", productos);
 		model.addAttribute("favoritosIds", favoritosIds);
+
 		return "catalogo";
 	}
 }
